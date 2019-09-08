@@ -1043,21 +1043,20 @@ async function postBuy(req: FastifyRequest, reply: FastifyReply<ServerResponse>)
     const itemId = req.body.item_id;
 
     let nowTrading: Boolean | null = null;
-
-    const checkTraiding = async () => {
+    {
         const [rows] = await db.query("SELECT * FROM `items_now_trading` WHERE `id` = ?", [itemId]);
 
         if (rows.length > 0) {
             nowTrading = !!rows[0].is_trading;
-            if (nowTrading) {
-                await new Promise(resolve => {
-                    setTimeout(resolve, 100);
-                }).then(checkTraiding);
-            }
         }
-    };
+    }
 
-    await checkTraiding();
+    if (nowTrading) {
+        replyError(reply, "他の人が購入処理中です", 500);
+        await db.rollback();
+        await db.release();
+        return;
+    }
 
     if (nowTrading === null) {
         await db.query(
