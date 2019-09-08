@@ -1965,11 +1965,8 @@ async function getSettings(req: FastifyRequest, reply: FastifyReply<ServerRespon
     res.payment_service_url = await getPaymentServiceURL(db);
     res.csrf_token = csrfToken;
 
-    const categories: Category[] = [];
-    const [rows] = await db.query("SELECT * FROM `categories`", []);
-    for (const row of rows) {
-        categories.push(row as Category);
-    }
+    const categories: Category[] = await getCategories(db);
+
     res.categories = categories;
 
     await db.release();
@@ -2147,6 +2144,26 @@ async function getUserSimpleByID(db: MySQLQueryable, userID: number): Promise<Us
     }
     return null;
 }
+
+const getCategories = (() => {
+    let alreadyCalled = false;
+    let result = Promise.resolve([] as Category[]);
+    return (db: MySQLQueryable) => {
+        if (!alreadyCalled) {
+            alreadyCalled = true;
+
+            result = db.query("SELECT * FROM `categories`", []).then(([rows]) => {
+                const categories: Category[] = [];
+                for (const row of rows) {
+                    categories.push(row as Category);
+                }
+                return categories;
+            });
+        }
+        return result;
+    };
+})();
+
 
 async function getCategoryByID(db: MySQLQueryable, categoryId: number): Promise<Category | null> {
     const [rows,] = await db.query("SELECT * FROM `categories` WHERE `id` = ?", [categoryId]);
