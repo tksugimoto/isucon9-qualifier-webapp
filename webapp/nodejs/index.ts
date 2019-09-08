@@ -2166,7 +2166,7 @@ const getCategories = (() => {
 
 
 async function getCategoryByID(db: MySQLQueryable, categoryId: number): Promise<Category | null> {
-    const [rows,] = await db.query("SELECT * FROM `categories` WHERE `id` = ?", [categoryId]);
+    const rows = await getCategories(db).then(categories => categories.filter(c => c.id === categoryId));
     for (const row of rows) {
         const category = row as Category;
         if (category.parent_id !== undefined && category.parent_id != 0) {
