@@ -1040,47 +1040,6 @@ async function postBuy(req: FastifyRequest, reply: FastifyReply<ServerResponse>)
         return;
     }
 
-    const itemId = req.body.item_id;
-
-    let nowTrading: Boolean | null = null;
-    {
-        const [rows] = await db.query("SELECT * FROM `items_now_trading` WHERE `id` = ?", [itemId]);
-
-        if (rows.length > 0) {
-            nowTrading = !!rows[0].is_trading;
-        }
-    }
-
-    if (nowTrading) {
-        replyError(reply, "他の人が購入処理中です", 500);
-        await db.rollback();
-        await db.release();
-        return;
-    }
-
-    if (nowTrading === null) {
-        await db.query(
-            "INSERT INTO `items_now_trading` (`id`, `is_trading`) VALUES (?, ?)",
-            [
-                itemId,
-                true,
-            ]
-        )
-    }
-
-    const updateTradingStatus = (db: MySQLQueryable, success: boolean) => {
-        if (success) {
-            return db.query("UPDATE `items_now_trading` SET `is_trading` = ? WHERE `id` = ?", [
-                false,
-                itemId,
-            ]);
-        } else {
-            return db.query("DELETE FROM `items_now_trading` WHERE `id` = ?", [
-                itemId,
-            ]);
-        }
-    };
-
     await db.beginTransaction();
 
     let targetItem: Item | null = null;
@@ -1124,7 +1083,6 @@ async function postBuy(req: FastifyRequest, reply: FastifyReply<ServerResponse>)
     if (seller === null) {
         replyError(reply, "seller not found", 404);
         await db.rollback();
-        await updateTradingStatus(db, false);
         await db.release();
         return;
     }
@@ -1133,7 +1091,6 @@ async function postBuy(req: FastifyRequest, reply: FastifyReply<ServerResponse>)
     if (category === null) {
         replyError(reply, "category id error", 500);
         await db.rollback();
-        await updateTradingStatus(db, false);
         await db.release();
         return;
     }
@@ -1184,14 +1141,12 @@ async function postBuy(req: FastifyRequest, reply: FastifyReply<ServerResponse>)
             if (pstr.status === "invalid") {
                 replyError(reply, "カード情報に誤りがあります", 400);
                 await db.rollback();
-                await updateTradingStatus(db, false);
                 await db.release();
                 return;
             }
             if (pstr.status === "fail") {
                 replyError(reply, "カードの残高が足りません", 400);
                 await db.rollback();
-                await updateTradingStatus(db, false);
                 await db.release();
                 return;
             }
@@ -1199,7 +1154,6 @@ async function postBuy(req: FastifyRequest, reply: FastifyReply<ServerResponse>)
             if (pstr.status !== 'ok') {
                 replyError(reply, "想定外のエラー", 400)
                 await db.rollback()
-                await updateTradingStatus(db, false);
                 await db.release();
                 return;
             }
@@ -1223,20 +1177,17 @@ async function postBuy(req: FastifyRequest, reply: FastifyReply<ServerResponse>)
         } catch (e) {
             replyError(reply, "payment service is failed", 500)
             await db.rollback();
-            await updateTradingStatus(db, false);
             await db.release();
             return;
         }
     } catch (error) {
         replyError(reply, "failed to request to shipment service", 500);
         await db.rollback();
-        await updateTradingStatus(db, false);
         await db.release();
         return;
     }
 
     await db.commit();
-    await updateTradingStatus(db, true);
     await db.release();
 
     reply.code(200)
