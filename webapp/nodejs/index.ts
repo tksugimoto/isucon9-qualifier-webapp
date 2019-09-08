@@ -989,7 +989,7 @@ async function postItemEdit(req: FastifyRequest, reply: FastifyReply<ServerRespo
 
     await db.beginTransaction();
 
-    await db.query("SELECT * FROM `items` WHERE `id` = ? FOR UPDATE", [targetItem.id]);
+    await db.query("SELECT * FROM `items` WHERE `id` = ? LOCK IN SHARE MODE", [targetItem.id]);
 
     if (targetItem.status !== ItemStatusOnSale) {
         replyError(reply, "販売中の商品以外編集できません", 403);
@@ -1044,7 +1044,7 @@ async function postBuy(req: FastifyRequest, reply: FastifyReply<ServerResponse>)
 
     let targetItem: Item | null = null;
     {
-        const [rows] = await db.query("SELECT * FROM `items` WHERE `id` = ? FOR UPDATE", [req.body.item_id]);
+        const [rows] = await db.query("SELECT * FROM `items` WHERE `id` = ? LOCK IN SHARE MODE", [req.body.item_id]);
 
         for (const row of rows) {
             targetItem = row as Item;
@@ -1407,7 +1407,7 @@ async function postShip(req: FastifyRequest, reply: FastifyReply<ServerResponse>
     let shipping: Shipping | null = null;
     {
         const [rows] = await db.query(
-            "SELECT * FROM `shippings` WHERE `transaction_evidence_id` = ? FOR UPDATE",
+            "SELECT * FROM `shippings` WHERE `transaction_evidence_id` = ? LOCK IN SHARE MODE",
             [
                 transactionalEvidence.id,
             ]
@@ -1526,7 +1526,7 @@ async function postShipDone(req: FastifyRequest, reply: FastifyReply<ServerRespo
 
     {
         const [rows] = await db.query(
-            "SELECT * FROM `transaction_evidences` WHERE `id` = ? FOR UPDATE",
+            "SELECT * FROM `transaction_evidences` WHERE `id` = ? LOCK IN SHARE MODE",
             [
                 transactionEvidence.id,
             ]
@@ -1553,7 +1553,7 @@ async function postShipDone(req: FastifyRequest, reply: FastifyReply<ServerRespo
     let shipping: Shipping | null = null;
     {
         const [rows] = await db.query(
-            "SELECT * FROM `shippings` WHERE `transaction_evidence_id` = ? FOR UPDATE",
+            "SELECT * FROM `shippings` WHERE `transaction_evidence_id` = ? LOCK IN SHARE MODE",
             [
                 transactionEvidence.id,
             ]
@@ -1662,7 +1662,7 @@ async function postComplete(req: FastifyRequest, reply: FastifyReply<ServerRespo
 
     let item: Item | null = null;
     {
-        const [rows] = await db.query("SELECT * FROM `items` WHERE `id` = ? FOR UPDATE", [itemId])
+        const [rows] = await db.query("SELECT * FROM `items` WHERE `id` = ? LOCK IN SHARE MODE", [itemId])
         for (const row of rows) {
             item = row as Item;
         }
@@ -1683,7 +1683,7 @@ async function postComplete(req: FastifyRequest, reply: FastifyReply<ServerRespo
     }
 
     {
-        const [rows] = await db.query("SELECT * FROM `transaction_evidences` WHERE `item_id` = ? FOR UPDATE", [itemId])
+        const [rows] = await db.query("SELECT * FROM `transaction_evidences` WHERE `item_id` = ? LOCK IN SHARE MODE", [itemId])
         for (const row of rows) {
             transactionEvidence = row as TransactionEvidence;
         }
@@ -1705,7 +1705,7 @@ async function postComplete(req: FastifyRequest, reply: FastifyReply<ServerRespo
 
     let shipping: Shipping | null = null;
     {
-        const [rows] = await db.query("SELECT * FROM `shippings` WHERE `transaction_evidence_id` = ? FOR UPDATE", [transactionEvidence.id]);
+        const [rows] = await db.query("SELECT * FROM `shippings` WHERE `transaction_evidence_id` = ? LOCK IN SHARE MODE", [transactionEvidence.id]);
         for (const row of rows) {
             shipping = row as Shipping;
         }
@@ -1888,7 +1888,7 @@ async function postBump(req: FastifyRequest, reply: FastifyReply<ServerResponse>
     let seller: User | null = null;
     {
         const [rows] = await db.query(
-            "SELECT * FROM `users` WHERE `id` = ? FOR UPDATE",
+            "SELECT * FROM `users` WHERE `id` = ? LOCK IN SHARE MODE",
             [
                 user.id,
             ]
