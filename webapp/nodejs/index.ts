@@ -309,7 +309,7 @@ async function postInitialize(req: FastifyRequest, reply: FastifyReply<ServerRes
 
     const res = {
         // キャンペーン実施時には還元率の設定を返す。詳しくはマニュアルを参照のこと。
-        campaign: 0,
+        campaign: 2,
         // 実装言語を返す
         language: "nodejs",
     };
@@ -585,15 +585,10 @@ async function getTransactions(req: FastifyRequest, reply: FastifyReply<ServerRe
     const items: Item[] = [];
     if (itemId > 0 && createdAt > 0) {
         const [rows] = await db.query(
-            "SELECT * FROM `items` WHERE (`seller_id` = ? OR `buyer_id` = ?) AND `status` IN (?,?,?,?,?) AND (`created_at` < ? OR (`created_at` <= ? AND `id` < ?)) ORDER BY `created_at` DESC, `id` DESC LIMIT ?",
+            "SELECT * FROM `items` WHERE (`seller_id` = ? OR `buyer_id` = ?) AND (`created_at` < ? OR (`created_at` <= ? AND `id` < ?)) ORDER BY `created_at` DESC, `id` DESC LIMIT ?",
             [
                 user.id,
                 user.id,
-                ItemStatusOnSale,
-                ItemStatusTrading,
-                ItemStatusSoldOut,
-                ItemStatusCancel,
-                ItemStatusStop,
                 new Date(createdAt),
                 new Date(createdAt),
                 itemId,
@@ -607,15 +602,10 @@ async function getTransactions(req: FastifyRequest, reply: FastifyReply<ServerRe
 
     } else {
         const [rows] = await db.query(
-            "SELECT * FROM `items` WHERE (`seller_id` = ? OR `buyer_id` = ?) AND `status` IN (?,?,?,?,?) ORDER BY `created_at` DESC, `id` DESC LIMIT ?",
+            "SELECT * FROM `items` WHERE (`seller_id` = ? OR `buyer_id` = ?) ORDER BY `created_at` DESC, `id` DESC LIMIT ?",
             [
                 user.id,
                 user.id,
-                ItemStatusOnSale,
-                ItemStatusTrading,
-                ItemStatusSoldOut,
-                ItemStatusCancel,
-                ItemStatusStop,
                 TransactionsPerPage + 1
             ]
         );
@@ -999,7 +989,7 @@ async function postItemEdit(req: FastifyRequest, reply: FastifyReply<ServerRespo
 
     await db.beginTransaction();
 
-    await db.query("SELECT * FROM `items` WHERE `id` = ? FOR UPDATE", [targetItem.id]);
+    await db.query("SELECT * FROM `items` WHERE `id` = ? LOCK IN SHARE MODE", [targetItem.id]);
 
     if (targetItem.status !== ItemStatusOnSale) {
         replyError(reply, "販売中の商品以外編集できません", 403);
@@ -1054,7 +1044,7 @@ async function postBuy(req: FastifyRequest, reply: FastifyReply<ServerResponse>)
 
     let targetItem: Item | null = null;
     {
-        const [rows] = await db.query("SELECT * FROM `items` WHERE `id` = ? FOR UPDATE", [req.body.item_id]);
+        const [rows] = await db.query("SELECT * FROM `items` WHERE `id` = ? LOCK IN SHARE MODE", [req.body.item_id]);
 
         for (const row of rows) {
             targetItem = row as Item;
@@ -1084,7 +1074,7 @@ async function postBuy(req: FastifyRequest, reply: FastifyReply<ServerResponse>)
 
     let seller: User | null = null;
     {
-        const [rows] = await db.query("SELECT * FROM `users` WHERE `id` = ? FOR UPDATE", [targetItem.seller_id]);
+        const [rows] = await db.query("SELECT * FROM `users` WHERE `id` = ?", [targetItem.seller_id]);
         for (const row of rows) {
             seller = row as User;
         }
@@ -1278,7 +1268,7 @@ async function postSell(req: FastifyRequest, reply: FastifyReply<ServerResponse>
 
     let seller: User | null = null;
     {
-        const [rows] = await db.query("SELECT * FROM `users` WHERE `id` = ? FOR UPDATE", [user.id]);
+        const [rows] = await db.query("SELECT * FROM `users` WHERE `id` = ?", [user.id]);
         for (const row of rows) {
             seller = row as User;
         }
@@ -1304,8 +1294,7 @@ async function postSell(req: FastifyRequest, reply: FastifyReply<ServerResponse>
     const itemId = result.insertId;
 
     const now = new Date();
-    await db.query("UPDATE `users` SET `num_sell_items`=?, `last_bump`=? WHERE `id`=?", [
-        seller.num_sell_items + 1,
+    await db.query("UPDATE `users` SET `num_sell_items`= `num_sell_items` + 1, `last_bump`=? WHERE `id`=?", [
         now,
         seller.id,
     ]);
@@ -1371,7 +1360,7 @@ async function postShip(req: FastifyRequest, reply: FastifyReply<ServerResponse>
     let item: Item | null = null;
     {
         const [rows] = await db.query(
-            "SELECT * FROM `items` WHERE `id` = ? FOR UPDATE",
+            "SELECT * FROM `items` WHERE `id` = ?",
             [itemId]
         );
         for (const row of rows) {
@@ -1395,7 +1384,7 @@ async function postShip(req: FastifyRequest, reply: FastifyReply<ServerResponse>
 
     {
         const [rows] = await db.query(
-            "SELECT * FROM `transaction_evidences` WHERE `id` = ? FOR UPDATE",
+            "SELECT * FROM `transaction_evidences` WHERE `id` = ?",
             [
                 transactionalEvidence.id,
             ]
@@ -1418,7 +1407,7 @@ async function postShip(req: FastifyRequest, reply: FastifyReply<ServerResponse>
     let shipping: Shipping | null = null;
     {
         const [rows] = await db.query(
-            "SELECT * FROM `shippings` WHERE `transaction_evidence_id` = ? FOR UPDATE",
+            "SELECT * FROM `shippings` WHERE `transaction_evidence_id` = ? LOCK IN SHARE MODE",
             [
                 transactionalEvidence.id,
             ]
@@ -1511,7 +1500,7 @@ async function postShipDone(req: FastifyRequest, reply: FastifyReply<ServerRespo
 
     let item: Item | null = null;
     {
-        const [rows] = await db.query("SELECT * FROM `items` WHERE `id` = ? FOR UPDATE", [
+        const [rows] = await db.query("SELECT * FROM `items` WHERE `id` = ?", [
             itemId,
         ]);
 
@@ -1537,7 +1526,7 @@ async function postShipDone(req: FastifyRequest, reply: FastifyReply<ServerRespo
 
     {
         const [rows] = await db.query(
-            "SELECT * FROM `transaction_evidences` WHERE `id` = ? FOR UPDATE",
+            "SELECT * FROM `transaction_evidences` WHERE `id` = ? LOCK IN SHARE MODE",
             [
                 transactionEvidence.id,
             ]
@@ -1564,7 +1553,7 @@ async function postShipDone(req: FastifyRequest, reply: FastifyReply<ServerRespo
     let shipping: Shipping | null = null;
     {
         const [rows] = await db.query(
-            "SELECT * FROM `shippings` WHERE `transaction_evidence_id` = ? FOR UPDATE",
+            "SELECT * FROM `shippings` WHERE `transaction_evidence_id` = ? LOCK IN SHARE MODE",
             [
                 transactionEvidence.id,
             ]
@@ -1673,7 +1662,7 @@ async function postComplete(req: FastifyRequest, reply: FastifyReply<ServerRespo
 
     let item: Item | null = null;
     {
-        const [rows] = await db.query("SELECT * FROM `items` WHERE `id` = ? FOR UPDATE", [itemId])
+        const [rows] = await db.query("SELECT * FROM `items` WHERE `id` = ? LOCK IN SHARE MODE", [itemId])
         for (const row of rows) {
             item = row as Item;
         }
@@ -1694,7 +1683,7 @@ async function postComplete(req: FastifyRequest, reply: FastifyReply<ServerRespo
     }
 
     {
-        const [rows] = await db.query("SELECT * FROM `transaction_evidences` WHERE `item_id` = ? FOR UPDATE", [itemId])
+        const [rows] = await db.query("SELECT * FROM `transaction_evidences` WHERE `item_id` = ? LOCK IN SHARE MODE", [itemId])
         for (const row of rows) {
             transactionEvidence = row as TransactionEvidence;
         }
@@ -1716,7 +1705,7 @@ async function postComplete(req: FastifyRequest, reply: FastifyReply<ServerRespo
 
     let shipping: Shipping | null = null;
     {
-        const [rows] = await db.query("SELECT * FROM `shippings` WHERE `transaction_evidence_id` = ? FOR UPDATE", [transactionEvidence.id]);
+        const [rows] = await db.query("SELECT * FROM `shippings` WHERE `transaction_evidence_id` = ? LOCK IN SHARE MODE", [transactionEvidence.id]);
         for (const row of rows) {
             shipping = row as Shipping;
         }
@@ -1872,7 +1861,7 @@ async function postBump(req: FastifyRequest, reply: FastifyReply<ServerResponse>
     let targetItem: Item | null = null;
     {
         const [rows] = await db.query(
-            "SELECT * FROM `items` WHERE `id` = ? FOR UPDATE",
+            "SELECT * FROM `items` WHERE `id` = ?",
             [
                 itemId,
             ]
@@ -1899,7 +1888,7 @@ async function postBump(req: FastifyRequest, reply: FastifyReply<ServerResponse>
     let seller: User | null = null;
     {
         const [rows] = await db.query(
-            "SELECT * FROM `users` WHERE `id` = ? FOR UPDATE",
+            "SELECT * FROM `users` WHERE `id` = ? LOCK IN SHARE MODE",
             [
                 user.id,
             ]
@@ -1975,11 +1964,8 @@ async function getSettings(req: FastifyRequest, reply: FastifyReply<ServerRespon
     res.payment_service_url = await getPaymentServiceURL(db);
     res.csrf_token = csrfToken;
 
-    const categories: Category[] = [];
-    const [rows] = await db.query("SELECT * FROM `categories`", []);
-    for (const row of rows) {
-        categories.push(row as Category);
-    }
+    const categories: Category[] = await getCategories(db);
+
     res.categories = categories;
 
     await db.release();
@@ -2158,8 +2144,28 @@ async function getUserSimpleByID(db: MySQLQueryable, userID: number): Promise<Us
     return null;
 }
 
+const getCategories = (() => {
+    let alreadyCalled = false;
+    let result = Promise.resolve([] as Category[]);
+    return (db: MySQLQueryable) => {
+        if (!alreadyCalled) {
+            alreadyCalled = true;
+
+            result = db.query("SELECT * FROM `categories`", []).then(([rows]) => {
+                const categories: Category[] = [];
+                for (const row of rows) {
+                    categories.push(row as Category);
+                }
+                return categories;
+            });
+        }
+        return result;
+    };
+})();
+
+
 async function getCategoryByID(db: MySQLQueryable, categoryId: number): Promise<Category | null> {
-    const [rows,] = await db.query("SELECT * FROM `categories` WHERE `id` = ?", [categoryId]);
+    const rows = await getCategories(db).then(categories => categories.filter(c => c.id === categoryId));
     for (const row of rows) {
         const category = row as Category;
         if (category.parent_id !== undefined && category.parent_id != 0) {
