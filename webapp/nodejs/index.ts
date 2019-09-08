@@ -1385,7 +1385,7 @@ async function postShip(req: FastifyRequest, reply: FastifyReply<ServerResponse>
 
     {
         const [rows] = await db.query(
-            "SELECT * FROM `transaction_evidences` WHERE `id` = ? FOR UPDATE",
+            "SELECT * FROM `transaction_evidences` WHERE `id` = ?",
             [
                 transactionalEvidence.id,
             ]
@@ -1501,7 +1501,7 @@ async function postShipDone(req: FastifyRequest, reply: FastifyReply<ServerRespo
 
     let item: Item | null = null;
     {
-        const [rows] = await db.query("SELECT * FROM `items` WHERE `id` = ? FOR UPDATE", [
+        const [rows] = await db.query("SELECT * FROM `items` WHERE `id` = ?", [
             itemId,
         ]);
 
@@ -1862,7 +1862,7 @@ async function postBump(req: FastifyRequest, reply: FastifyReply<ServerResponse>
     let targetItem: Item | null = null;
     {
         const [rows] = await db.query(
-            "SELECT * FROM `items` WHERE `id` = ? FOR UPDATE",
+            "SELECT * FROM `items` WHERE `id` = ?",
             [
                 itemId,
             ]
