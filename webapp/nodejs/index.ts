@@ -1268,7 +1268,7 @@ async function postSell(req: FastifyRequest, reply: FastifyReply<ServerResponse>
 
     let seller: User | null = null;
     {
-        const [rows] = await db.query("SELECT * FROM `users` WHERE `id` = ? FOR UPDATE", [user.id]);
+        const [rows] = await db.query("SELECT * FROM `users` WHERE `id` = ?", [user.id]);
         for (const row of rows) {
             seller = row as User;
         }
@@ -1294,8 +1294,7 @@ async function postSell(req: FastifyRequest, reply: FastifyReply<ServerResponse>
     const itemId = result.insertId;
 
     const now = new Date();
-    await db.query("UPDATE `users` SET `num_sell_items`=?, `last_bump`=? WHERE `id`=?", [
-        seller.num_sell_items + 1,
+    await db.query("UPDATE `users` SET `num_sell_items`= `num_sell_items` + 1, `last_bump`=? WHERE `id`=?", [
         now,
         seller.id,
     ]);
