@@ -1360,7 +1360,7 @@ async function postShip(req: FastifyRequest, reply: FastifyReply<ServerResponse>
     let item: Item | null = null;
     {
         const [rows] = await db.query(
-            "SELECT * FROM `items` WHERE `id` = ? FOR UPDATE",
+            "SELECT * FROM `items` WHERE `id` = ?",
             [itemId]
         );
         for (const row of rows) {
